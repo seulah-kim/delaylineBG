@@ -32,7 +32,7 @@ probSyn_str = rand(length(t_span),n)>prob_syn; % flip a coin: success (1) or fai
 probSyn_gp = rand(length(t_span),n./r)>prob_syn; 
 y0 = [g_i0;Vm_i0];
 
-[TOUT,YOUT] = ode45(@(t,x)Vm_diffeq(t,x,n,r),t_span,y0);
+[TOUT,YOUT] = ode45(@(t,x)Vm_diffeq(t,x,n,r),[0 10,y0);
 
 %%total synaptic conductance
 % g_str=sum(spk_count_str.*probSyn_str      % how to advance through probSyn_str??

@@ -30,8 +30,8 @@ synSuccess_i = rand(length(Vm_i),1)<prob_syn; % flip a coin: success (1) or fail
 % sum(spk_count_str.*synSuccess
 
 %Striatum
-delta_str = Vm_str>Vm_thres;
-Vm_str(Vm_str>Vm_thres) = Vrest;   % bring it back to Vrest
+delta_str = Vm_i>Vm_thres;
+Vm_i(Vm_i>Vm_thres) = Vrest;   % bring it back to Vrest
 I_syn =  -g_i.*(Vm_i-Erev_i);
 Isyn_gpe = -g_str.*(V
 
