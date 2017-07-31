@@ -1,6 +1,6 @@
-%% BGdelayline3.M
+%% BGdelayline.m
 %This is the main code for simulating BG delay line model
-function [Vm_gp, Vm_snr, Vm_str, Isyn_gp_out, Isyn_snr_out] = BGdelayline(varargin)
+function [Vm_gp, Vm_snr, Vm_str, Isyn_gp_out, Isyn_snr_out] = BGdelayline(varargin);
 
 tic
 close all
@@ -24,18 +24,18 @@ Vpeak = 15;     % Peak potential(mV)
 V_thres = -64;  % Threshold voltage(mV)
 %Synaptic
 p.addParameter('tau_syn',5); % synaptic decay constant (ms)
-p.addParameter('prob_syn', 0.95); % probability of successful synaptic transmission
-g_uni = 1 ; % conductance of a single synapse
+p.addParameter('prob_syn', 0.35); % probability of successful synaptic transmission
+g_uni = 100 ; % conductance of a single synapse
 
 %%Nonlinear function to filter synaptic input (sigmoid function)
 %values for GP 
-p.addParameter('k_gp',1000);    % steepness of logistic function
-p.addParameter('xd_gp', 5);    % x location of midpoint of logistic function
-p.addParameter('L_gp', 40);     % max value of curve
-%values for SNr
-p.addParameter('k_snr', 1000);    % steepness of logistic function
-p.addParameter('xd_snr' ,6.5);   % x location of midpoint of logistic function
-p.addParameter('L_snr', 40);     % max value of curve
+%p.addParameter('k_gp',1000);    % steepness of logistic function
+%p.addParameter('xd_gp', 5);    % x location of midpoint of logistic function
+%p.addParameter('L_gp', 40);     % max value of curve
+%%values for SNr
+%p.addParameter('k_snr', 1000);    % steepness of logistic function
+%p.addParameter('xd_snr' ,6.5);   % x location of midpoint of logistic function
+%p.addParameter('L_snr', 40);     % max value of curve
 
 %%Input current to Str layer
 randNum = round((20-10).*rand(1,1)+10);
@@ -51,12 +51,12 @@ r = p.Results.r;
 n = p.Results.n;
 tau_syn = p.Results.tau_syn;
 prob_syn = p.Results.prob_syn;
-k_gp = p.Results.k_gp;
-xd_gp = p.Results.xd_gp;
-L_gp = p.Results.L_gp;
-k_snr = p.Results.k_snr;
-xd_snr = p.Results.xd_snr;
-L_snr = p.Results.L_snr;
+%k_gp = p.Results.k_gp;
+%xd_gp = p.Results.xd_gp;
+%L_gp = p.Results.L_gp;
+%k_snr = p.Results.k_snr;
+%xd_snr = p.Results.xd_snr;
+%L_snr = p.Results.L_snr;
 stimCellsPer = p.Results.stimCellsPer;
 
 %%Initialize variables
@@ -78,11 +78,11 @@ Isyn_gp_out =[];
 Isyn_snr_out =[];
 %neuron filter for synaptic inputs
 % for GP
-syms synNonlin(x)
-synNonlin(x)= piecewise(x<=(xd_gp-2/k_gp),0,(xd_gp-2/k_gp)<x<=xd_gp, L_gp*k_gp/4*(x-xd_gp)+L_gp/2,x>xd_gp,L_gp./(1+exp(-k_gp*(x-xd_gp))));    % check if this is in the working range
+%syms synNonlin(x)
+%synNonlin(x)= piecewise(x<=(xd_gp-2/k_gp),0,(xd_gp-2/k_gp)<x<=xd_gp, L_gp*k_gp/4*(x-xd_gp)+L_gp/2,x>xd_gp,L_gp./(1+exp(-k_gp*(x-xd_gp))));    % check if this is in the working range
 % for SNr
-syms synNonlin_snr(x)
-synNonlin_snr(x) =piecewise(x<=(xd_snr-2/k_snr),0,(xd_snr-2/k_snr)<x<=xd_snr, L_snr*k_snr/4*(x-xd_snr)+L_snr/2,x>xd_snr,L_snr./(1+exp(-k_snr*(x-xd_snr))));   % check if this is in the working range
+%syms synNonlin_snr(x)
+%synNonlin_snr(x) =piecewise(x<=(xd_snr-2/k_snr),0,(xd_snr-2/k_snr)<x<=xd_snr, L_snr*k_snr/4*(x-xd_snr)+L_snr/2,x>xd_snr,L_snr./(1+exp(-k_snr*(x-xd_snr))));   % check if this is in the working range
 % external input to Str
 Iext_str = zeros(n,length(t_span));
 stimCells=datasample(1:n,n*stimCellsPer/100,'Replace',false);	% Random sample of str cells for receiving stimulus, defined by percentage 
@@ -97,17 +97,17 @@ dVm_str = (-1*(Vm_str(:,t)-Vrest*ones(n,1))./tau_cell_str + Iext_str(:,t)/Cm)*dt
 %GP
 synSuccess_str2gp = double(rand(n,n/r)<prob_syn);
 Isyn_gp = g_str2gp(:,t).*(Vm_gp(:,t)-Erev_i*ones(n/r,1));  % (pA)
-Iext_gp = 50*I_const*ones(n/r,1);
-dg_str2gp = (-g_str2gp(:,t)./tau_syn + transpose(delta_str'*synSuccess_str2gp*g_uni))*dt;
-dVm_gp = (-(Vm_gp(:,t)-Vrest*ones(n/r,1))./tau_cell_gp - synNonlin(Isyn_gp)/Cm+Iext_gp/Cm)*dt;
+Iext_gp = 25*I_const*ones(n/r,1);
+dg_str2gp = (-g_str2gp(:,t)./tau_syn + transpose(delta_str'*synSuccess_str2gp*g_uni/n))*dt;
+dVm_gp = (-(Vm_gp(:,t)-Vrest*ones(n/r,1))./tau_cell_gp - Isyn_gp/Cm+Iext_gp/Cm)*dt;
 % dVm_gp = (-(Vm_gp(:,t)-Vrest*ones(n/r,1))./tau_cell_gp +Iext_gp/Cm)*dt; %
 
 %SNr
 synSuccess_gp2snr = double(rand(n/r,n/r.^2)<prob_syn);
 Isyn_snr = g_gp2snr(:,t).*(Vm_snr(:,t)-Erev_i.*ones(n/r.^2,1));
-Iext_snr = 40*I_const*ones(n/r.^2,1);
-dg_gp2snr = (-g_gp2snr(:,t)./tau_syn + transpose(delta_gp'*synSuccess_gp2snr*g_uni))*dt;
-dVm_snr = (-(Vm_snr(:,t)-Vrest*ones(n/r.^2,1))./tau_cell_snr - synNonlin_snr(Isyn_snr)/Cm+Iext_snr/Cm)*dt;
+Iext_snr = 125*I_const*ones(n/r.^2,1);
+dg_gp2snr = (-g_gp2snr(:,t)./tau_syn + transpose(delta_gp'*synSuccess_gp2snr*g_uni/(n/r)))*dt;
+dVm_snr = (-(Vm_snr(:,t)-Vrest*ones(n/r.^2,1))./tau_cell_snr - Isyn_snr/Cm+Iext_snr/Cm)*dt;
 
 %Update conductances
 g_str2gp(:,t+1) = g_str2gp(:,t)+dg_str2gp;
