@@ -16,7 +16,7 @@ dt = 0.001; %(s)
 t_span = 0:dt:20;
 
 %%Define Constants
-Cm = 0.1;        % Cell capacitance (nF)
+R = 10;        % Membrane Resistance (MOhm)
 Erev_i = -85;   % Synaptic reversal potential(mV)
 I_const = 0.1;   % General scale for constant excitatory input(pA)
 Vrest = -70;    % Resting potential(mV)
@@ -70,22 +70,22 @@ Iext_str(stimCells,ismember(t_span,tStim)) = 50*I_const;  % constant input to st
 for t = 1:length(t_span)
 %Striatum
 %Iext_str = I_const*ones(n,1);  % constant input to striatum ( 0.6~0.61Iconst for relatively quiet str cells) (in pA)
-dVm_str = (-1*(Vm_str(:,t)-Vrest*ones(n,1))./tau_cell_str + Iext_str(:,t)/Cm)*dt;   % no nonlinear function here!
+dVm_str = 1./tau_cell_str.*(-1*(Vm_str(:,t)-Vrest*ones(n,1)) + Iext_str(:,t)*R)*dt;   % no nonlinear function here!
 
 %GP
 synSuccess_str2gp = double(rand(n,n/r)<prob_syn);
 Isyn_gp = g_str2gp(:,t).*(Vm_gp(:,t)-Erev_i*ones(n/r,1));  % (pA)
-Iext_gp = 50*I_const*ones(n/r,1);
+Iext_gp = 30*I_const*ones(n/r,1);
 dg_str2gp = (-g_str2gp(:,t)./tau_syn + transpose(delta_str'*synSuccess_str2gp*g_uni/n))*dt;
-dVm_gp = (-(Vm_gp(:,t)-Vrest*ones(n/r,1))./tau_cell_gp - Isyn_gp/Cm+Iext_gp/Cm)*dt;
-% dVm_gp = (-(Vm_gp(:,t)-Vrest*ones(n/r,1))./tau_cell_gp +Iext_gp/Cm)*dt; %
+dVm_gp =1./tau_cell_gp.* (-(Vm_gp(:,t)-Vrest*ones(n/r,1)) - Isyn_gp*R+Iext_gp*R)*dt;
+% dVm_gp = (-(Vm_gp(:,t)-Vrest*ones(n/r,1))./tau_cell_gp +Iext_gp*R)*dt; %
 
 %SNr
 synSuccess_gp2snr = double(rand(n/r,n/r.^2)<prob_syn);
 Isyn_snr = g_gp2snr(:,t).*(Vm_snr(:,t)-Erev_i.*ones(n/r.^2,1));
-Iext_snr = round(50*IextRatio_gpsnr,2)*I_const*ones(n/r.^2,1);
+Iext_snr = round(30*IextRatio_gpsnr,2)*I_const*ones(n/r.^2,1);
 dg_gp2snr = (-g_gp2snr(:,t)./tau_syn + transpose(delta_gp'*synSuccess_gp2snr*g_uni/(n/r)))*dt;
-dVm_snr = (-(Vm_snr(:,t)-Vrest*ones(n/r.^2,1))./tau_cell_snr - Isyn_snr/Cm+Iext_snr/Cm)*dt;
+dVm_snr = 1./tau_cell_snr.*(-(Vm_snr(:,t)-Vrest*ones(n/r.^2,1)) - Isyn_snr*R+Iext_snr*R)*dt;
 
 %Update conductances
 g_str2gp(:,t+1) = g_str2gp(:,t)+dg_str2gp;
