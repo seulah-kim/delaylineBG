@@ -32,13 +32,12 @@ randNum = round((20-10).*rand(1,1)+10);
 randNum = 5;	% timing of Stimulation
 tStim = [randNum:dt:randNum+0.5]; % (s) 
 IextRatio_gpsnr = 10/3;
-% only the Str cell #5 will receive input
-p.addParameter('stimCellsPer',100) 
+p.addParameter('stimCellsPer',100);	% Percentage of Str cells receiving stimulation
 
 %% Parse and validate input arguments
 p.parse(varargin{:}); 
 
-% Assign variables from pased input arguments
+% Assign variables from parsed input arguments
 r = p.Results.r;
 n = p.Results.n;
 tau_syn = p.Results.tau_syn;
@@ -57,34 +56,32 @@ g_gp2snr = 0.3*ones(n/r.^2,1);
 Vm_str = Vrest+2*randn(n,1);  % (mV)
 Vm_gp = Vrest+2*randn(n/r,1);
 Vm_snr = Vrest+2*randn(n/r.^2,1);
-delta_str = zeros(n,1); % binary
-delta_gp = zeros(n/r,1);
-delta_snr = zeros(n/r.^2,1);
+del_str = zeros(n,1);   % binary
+del_gp = zeros(n/r,1);
 Isyn_gp_out =[];
 Isyn_snr_out =[];
 Iext_str = zeros(n,length(t_span));
 stimCells=datasample(1:n,n*stimCellsPer/100,'Replace',false);	% Random sample of str cells for receiving stimulus, defined by percentage 
-Iext_str(stimCells,ismember(t_span,tStim)) = 50*I_const;  % constant input to striatum ( 0.6~0.61Iconst for relatively quiet str cells) (in pA)
+
+Iext_str(stimCells,ismember(t_span,tStim)) = 0*I_const;  % constant input to striatum ( 0.6~0.61Iconst for relatively quiet str cells) (in pA)
 
 %%Simulation
 for t = 1:length(t_span)
 %Striatum
-%Iext_str = I_const*ones(n,1);  % constant input to striatum ( 0.6~0.61Iconst for relatively quiet str cells) (in pA)
-dVm_str = 1./tau_cell_str.*(-1*(Vm_str(:,t)-Vrest*ones(n,1)) + Iext_str(:,t)*R)*dt;   % no nonlinear function here!
+dVm_str = 1./tau_cell_str.*(-1*(Vm_str(:,t)-Vrest*ones(n,1)) + Iext_str(:,t)*R)*dt;   % dV/dt = 1/tau*(-V +IR) 
 
 %GP
-synSuccess_str2gp = double(rand(n,n/r)<prob_syn);
-Isyn_gp = g_str2gp(:,t).*(Vm_gp(:,t)-Erev_i*ones(n/r,1));  % (pA)
-Iext_gp = 30*I_const*ones(n/r,1);
-dg_str2gp = (-g_str2gp(:,t)./tau_syn + transpose(delta_str'*synSuccess_str2gp*g_uni/n))*dt;
+synSuccess_str2gp = double(rand(n,n/r)<prob_syn);	% flipping coin: n x n/r binary matrix 
+Isyn_gp = g_str2gp(:,t).*(Vm_gp(:,t)-Erev_i*ones(n/r,1));  % synaptic (pA)
+Iext_gp = 30*I_const*ones(n/r,1);	% external input (pA)
+dg_str2gp = (-g_str2gp(:,t)./tau_syn + transpose(del_str'*synSuccess_str2gp*g_uni/n))*dt;
 dVm_gp =1./tau_cell_gp.* (-(Vm_gp(:,t)-Vrest*ones(n/r,1)) - Isyn_gp*R+Iext_gp*R)*dt;
-% dVm_gp = (-(Vm_gp(:,t)-Vrest*ones(n/r,1))./tau_cell_gp +Iext_gp*R)*dt; %
 
 %SNr
-synSuccess_gp2snr = double(rand(n/r,n/r.^2)<prob_syn);
-Isyn_snr = g_gp2snr(:,t).*(Vm_snr(:,t)-Erev_i.*ones(n/r.^2,1));
-Iext_snr = round(30*IextRatio_gpsnr,2)*I_const*ones(n/r.^2,1);
-dg_gp2snr = (-g_gp2snr(:,t)./tau_syn + transpose(delta_gp'*synSuccess_gp2snr*g_uni/(n/r)))*dt;
+synSuccess_gp2snr = double(rand(n/r,n/r.^2)<prob_syn);	% flipping coin: n/r x n/r^2 binary matrix
+Isyn_snr = g_gp2snr(:,t).*(Vm_snr(:,t)-Erev_i.*ones(n/r.^2,1));	% synaptic (pA)
+Iext_snr = round(30*IextRatio_gpsnr,2)*I_const*ones(n/r.^2,1);	% external input (pA)
+dg_gp2snr = (-g_gp2snr(:,t)./tau_syn + transpose(del_gp'*synSuccess_gp2snr*g_uni/(n/r)))*dt;
 dVm_snr = 1./tau_cell_snr.*(-(Vm_snr(:,t)-Vrest*ones(n/r.^2,1)) - Isyn_snr*R+Iext_snr*R)*dt;
 
 %Update conductances
@@ -92,36 +89,38 @@ g_str2gp(:,t+1) = g_str2gp(:,t)+dg_str2gp;
 g_gp2snr(:,t+1) = g_gp2snr(:,t)+dg_gp2snr;
 
 %Check for spikes in the cells
-delta_str = double((Vm_str(:,t)+dVm_str)>=V_thres);
-delta_gp = double((Vm_gp(:,t)+dVm_gp)>=V_thres);
-delta_snr = double((Vm_snr(:,t)+dVm_snr)>=V_thres);
+del_str = (Vm_str(:,t)+dVm_str)>=V_thres;   % keep the array for matrix operation in line 78 (dg_str2gp)
+del_gp = (Vm_gp(:,t)+dVm_gp)>=V_thres;
 
-%Update spike patterns
+ind_str = find(del_str);    % indices of spikes
+ind_gp = find(del_gp);
+ind_snr = find((Vm_snr(:,t)+dVm_snr)>=V_thres);
+
+%Update voltages based on spike pattern 
 %Str
 Vm_str(:,t+1) = Vm_str(:,t)+dVm_str;
-if sum(delta_str)>=1
-    Vm_str((Vm_str(:,t)+dVm_str)>=V_thres,t) = Vpeak;
-    Vm_str((Vm_str(:,t)+dVm_str)>=V_thres,t+1) = Vrest;
+if ~isempty(ind_str)
+    Vm_str(ind_str,t) = Vpeak;
+    Vm_str(ind_str,t+1) = Vrest;
 end
+
 %GP
 Vm_gp(:,t+1) = Vm_gp(:,t)+dVm_gp;
-if sum(delta_gp)>=1
-    Vm_gp((Vm_gp(:,t)+dVm_gp)>=V_thres,t) = Vpeak;
-    Vm_gp((Vm_gp(:,t)+dVm_gp)>=V_thres,t+1) = Vrest;
+if ~isempty(ind_gp) 
+    Vm_gp(ind_gp,t) = Vpeak;
+    Vm_gp(ind_gp,t+1) = Vrest;
 end
+
 %SNr
 Vm_snr(:,t+1) = Vm_snr(:,t)+dVm_snr;
-if sum(delta_snr)>=1
-    Vm_snr((Vm_snr(:,t)+dVm_snr)>=V_thres,t) = Vpeak;
-    Vm_snr((Vm_snr(:,t)+dVm_snr)>=V_thres,t+1) = Vrest;
+if ~isempty(ind_snr) 
+    Vm_snr(ind_snr,t) = Vpeak;
+    Vm_snr(ind_snr,t+1) = Vrest;
 end 
 
 %Save variables 
 Isyn_gp_out = [Isyn_gp_out,Isyn_gp];
 Isyn_snr_out = [Isyn_snr_out,Isyn_snr];
 end
-spike_str = Vm_str==Vpeak;
-
 toc
-
 end
