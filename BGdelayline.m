@@ -3,7 +3,6 @@
 function [Vm_gp, Vm_snr, Vm_str, Isyn_gp_out, Isyn_snr_out] = BGdelayline(varargin);
 
 tic
-close all
 
 p = inputParser;	% construct input parser object
 
@@ -23,16 +22,16 @@ Vrest = -70;    % Resting potential(mV)
 Vpeak = 15;     % Peak potential(mV)
 V_thres = -64;  % Threshold voltage(mV)
 %Synaptic
-p.addParameter('tau_syn',5); % synaptic decay constant (ms)
+p.addParameter('tau_syn',4); % synaptic decay constant (ms)
 p.addParameter('prob_syn', 0.35); % probability of successful synaptic transmission
-g_uni = 100 ; % conductance of a single synapse
+g_uni = 70 ; % conductance of a single synapse
 
 %%Input current to Str layer
 randNum = round((20-10).*rand(1,1)+10);
 randNum = 5;	% timing of Stimulation
 tStim = [randNum:dt:randNum+0.5]; % (s) 
 IextRatio_gpsnr = 10/3;
-p.addParameter('stimCellsPer',100);	% Percentage of Str cells receiving stimulation
+p.addParameter('stimCellsPer',53);	% Percentage of Str cells receiving stimulation
 
 %% Parse and validate input arguments
 p.parse(varargin{:}); 
@@ -50,12 +49,12 @@ tau_cell_str = ones(n,1);   % cell decay constant (ms)
 tau_cell_gp = ones(n/r,1);   % cell decay constant (ms)
 tau_cell_snr = ones(n/r.^2,1);   % cell decay constant (ms)
 %homogeneous conductance
-g_str2gp = 0.05*ones(n/r,1);    % (nS)	
-g_gp2snr = 0.3*ones(n/r.^2,1);
+g_str2gp = 0*ones(n/r,length(t_span));    % (nS)	
+g_gp2snr = 0.4*ones(n/r.^2,length(t_span));	% steady state value changes depending on g_uni
 %heterogeneous Vstart
-Vm_str = Vrest+2*randn(n,1);  % (mV)
-Vm_gp = Vrest+2*randn(n/r,1);
-Vm_snr = Vrest+2*randn(n/r.^2,1);
+Vm_str = Vrest+5*randn(n,1);  % (mV)
+Vm_gp = Vrest+5*randn(n/r,1);
+Vm_snr = Vrest+0*randn(n/r.^2,1);
 del_str = zeros(n,1);   % binary
 del_gp = zeros(n/r,1);
 Isyn_gp_out =[];
@@ -63,7 +62,7 @@ Isyn_snr_out =[];
 Iext_str = zeros(n,length(t_span));
 stimCells=datasample(1:n,n*stimCellsPer/100,'Replace',false);	% Random sample of str cells for receiving stimulus, defined by percentage 
 
-Iext_str(stimCells,ismember(t_span,tStim)) = 0*I_const;  % constant input to striatum ( 0.6~0.61Iconst for relatively quiet str cells) (in pA)
+Iext_str(stimCells,ismember(t_span,tStim)) = 50*I_const;  % external input to Str (~5 pA) 
 
 %%Simulation
 for t = 1:length(t_span)
@@ -123,4 +122,6 @@ Isyn_gp_out = [Isyn_gp_out,Isyn_gp];
 Isyn_snr_out = [Isyn_snr_out,Isyn_snr];
 end
 toc
+Isyn_gp_out = g_str2gp;
+Isyn_snr_out = g_gp2snr;
 end
