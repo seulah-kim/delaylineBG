@@ -30,8 +30,9 @@ g_uni = 70 ; % conductance of a single synapse
 randNum = round((20-10).*rand(1,1)+10);
 randNum = 5;	% timing of Stimulation
 tStim = [randNum:dt:randNum+0.5]; % (s) 
-IextRatio_gpsnr = 10/3;
+IextRatio_gpsnr = 12/3;
 p.addParameter('stimCellsPer',53);	% Percentage of Str cells receiving stimulation
+p.addParameter('I_exc_gp',30);		% Total excitatory input to GP cells controls firing rate 
 
 %% Parse and validate input arguments
 p.parse(varargin{:}); 
@@ -42,6 +43,7 @@ n = p.Results.n;
 tau_syn = p.Results.tau_syn;
 prob_syn = p.Results.prob_syn;
 stimCellsPer = p.Results.stimCellsPer;
+I_exc_gp = p.Results.I_exc_gp;
 
 %%Initialize variables
 %Cellular
@@ -57,6 +59,7 @@ Vm_gp = Vrest+5*randn(n/r,1);
 Vm_snr = Vrest+0*randn(n/r.^2,1);
 del_str = zeros(n,1);   % binary
 del_gp = zeros(n/r,1);
+gp_fr_out = [];
 Isyn_gp_out =[];
 Isyn_snr_out =[];
 Iext_str = zeros(n,length(t_span));
@@ -72,13 +75,18 @@ dVm_str = 1./tau_cell_str.*(-1*(Vm_str(:,t)-Vrest*ones(n,1)) + Iext_str(:,t)*R)*
 %GP
 synSuccess_str2gp = double(rand(n,n/r)<prob_syn);	% flipping coin: n x n/r binary matrix 
 Isyn_gp = g_str2gp(:,t).*(Vm_gp(:,t)-Erev_i*ones(n/r,1));  % synaptic (pA)
-Iext_gp = 30*I_const*ones(n/r,1);	% external input (pA)
+Iext_gp = I_exc_gp*I_const*ones(n/r,1);	% external input (pA) -  original value 30
 dg_str2gp = (-g_str2gp(:,t)./tau_syn + transpose(del_str'*synSuccess_str2gp*g_uni/n))*dt;
 dVm_gp =1./tau_cell_gp.* (-(Vm_gp(:,t)-Vrest*ones(n/r,1)) - Isyn_gp*R+Iext_gp*R)*dt;
 
 %SNr
+% Manipulation 1
+%synSuccess_gp2snr = double(rand(n/r,n/r.^2)<(prob_syn/I_exc_gp*30));	% flipping coin: n/r x n/r^2 binary matrix
+%Isyn_snr = g_gp2snr(:,t).*(Vm_snr(:,t)-Erev_i.*ones(n/r.^2,1));	% synaptic (pA)
+% Manipulation 2
 synSuccess_gp2snr = double(rand(n/r,n/r.^2)<prob_syn);	% flipping coin: n/r x n/r^2 binary matrix
-Isyn_snr = g_gp2snr(:,t).*(Vm_snr(:,t)-Erev_i.*ones(n/r.^2,1));	% synaptic (pA)
+Isyn_snr = g_gp2snr(:,t).*(Vm_snr(:,t)-Erev_i.*ones(n/r.^2,1))/I_exc_gp*30;	% synaptic (pA)
+
 Iext_snr = round(30*IextRatio_gpsnr,2)*I_const*ones(n/r.^2,1);	% external input (pA)
 dg_gp2snr = (-g_gp2snr(:,t)./tau_syn + transpose(del_gp'*synSuccess_gp2snr*g_uni/(n/r)))*dt;
 dVm_snr = 1./tau_cell_snr.*(-(Vm_snr(:,t)-Vrest*ones(n/r.^2,1)) - Isyn_snr*R+Iext_snr*R)*dt;
@@ -122,6 +130,6 @@ Isyn_gp_out = [Isyn_gp_out,Isyn_gp];
 Isyn_snr_out = [Isyn_snr_out,Isyn_snr];
 end
 toc
-Isyn_gp_out = g_str2gp;
-Isyn_snr_out = g_gp2snr;
+%Isyn_gp_out = g_str2gp;
+%Isyn_snr_out = g_gp2snr;
 end
