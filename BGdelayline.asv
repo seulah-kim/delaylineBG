@@ -64,10 +64,10 @@ del_gp = zeros(n/r,1);
 gp_fr_out = [];
 Isyn_gp_out =[];
 Isyn_snr_out =[];
-Iext_str = 5*randn(n,length(t_span));   % 10% noise from the total external input (~0.5pA) 
+Iext_str = zeros(n,length(t_span));
 stimCells=datasample(1:n,n*stimCellsPer/100,'Replace',false);	% Random sample of str cells for receiving stimulus, defined by percentage 
 
-Iext_str(stimCells,ismember(t_span,tStim)) = 50*I_const+ Iext_str(stimCells,ismember(t_span,tStim));  % external input to Str (~5 pA) 
+Iext_str(stimCells,ismember(t_span,tStim)) = 50*I_const + randn(stimCells;  % external input to Str (~5 pA) 
 
 %%Simulation
 for t = 1:length(t_span)
