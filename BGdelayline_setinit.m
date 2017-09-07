@@ -1,7 +1,7 @@
-%% BGdelayline.m
-%This is the main code for simulating BG delay line model
-function [Vm_gp, Vm_snr, Vm_str, Isyn_gp_out, Isyn_snr_out] = BGdelayline(varargin);
-tic
+function g_gp2snr_out = BGdelayline_setinit(varargin)
+%BGdelayline_setinit function picks steady state value of g_gp2snr for
+%given GP firing rate (defined by parser object 'I_exc_gp')
+
 p = inputParser;	% construct input parser object
 
 %%Network size
@@ -9,28 +9,27 @@ p.addParameter('r', 10); % convergence ratio between layers
 p.addParameter('n', 100); % number of str neurons
 
 %%Simulation time
-dt = 0.0001; %(s) dt is 0.1ms resolution
-t_span = 0:dt:3;
+dt = 0.0001; %(s)
+t_span = 0:dt:5;
 
 %%Define Constants
 R = 100;        % Membrane Resistance (MOhm)
 Erev_i = -85;   % Synaptic reversal potential(mV)
-I_const = 0.1;   % General scale for constant excitatory input(nA)
+I_const = 0.1;   % General scale for constant excitatory input(pA)
 Vrest = -70;    % Resting potential(mV)
 Vpeak = 15;     % Peak potential(mV)
 V_thres = -64;  % Threshold voltage(mV)
 %Synaptic
-p.addParameter('tau_syn',0.030); % synaptic decay constant (s) because RK method will multiply everything by dt
+p.addParameter('tau_syn',0.030); % synaptic decay constant (ms)
 p.addParameter('prob_syn', 0.35); % probability of successful synaptic transmission
 p.addParameter('prob_syn_gp2snr',0.35); % probability of successful synaptic transmission for gp2snr
-g_uni = 0.2; % conductance of a single synapse (nS)
-p.addParameter('g_gp2snr_i',3.5);
+g_uni = 0.2 ; % conductance of a single synapse
 
 %%Input current to Str layer
 randNum = round((20-10).*rand(1,1)+10);
-randNum = 1;	% timing of Stimulation
-tStim = [randNum:dt:randNum+0.010]; % (s) 
-IextRatio_gpsnr = 1; %77/8
+randNum = 3;	% timing of Stimulation
+tStim = [randNum:dt:randNum+0.5]; % (s) 
+IextRatio_gpsnr = 1; %1.05
 p.addParameter('stimCellsPer',53);	% Percentage of Str cells receiving stimulation
 p.addParameter('I_exc_gp',30);		% Total excitatory input to GP cells controls firing rate 
 
@@ -45,38 +44,37 @@ prob_syn = p.Results.prob_syn;
 stimCellsPer = p.Results.stimCellsPer;
 I_exc_gp = p.Results.I_exc_gp;
 prob_syn_gp2snr = p.Results.prob_syn_gp2snr;
-g_gp2snr_i = p.Results.g_gp2snr_i;
+
 %%Initialize variables
 %Cellular
-tau_cell_str = 0.001*ones(n,1);   % cell decay constant (s)
-tau_cell_gp = 0.001*ones(n/r,1);   % cell decay constant (s)
-tau_cell_snr = 0.001*ones(n/r.^2,1);   % cell decay constant (s)
+tau_cell_str = 0.001*ones(n,1);   % cell decay constant (ms)
+tau_cell_gp = 0.001*ones(n/r,1);   % cell decay constant (ms)
+tau_cell_snr = 0.001*ones(n/r.^2,1);   % cell decay constant (ms)
 %homogeneous conductance
 g_str2gp = 0*ones(n/r,length(t_span));    % (nS)	
-g_gp2snr = g_gp2snr_i*ones(n/r.^2,length(t_span));	% steady state value changes depending on g_uni (3.5 for Iext=80, 6.5 for Iext=150, 12.6 for Iext=280)
+g_gp2snr = 3.5*ones(n/r.^2,length(t_span));	% steady state value changes depending on g_uni (3.5 for Iext=80, 6.5 for Iext=150, 12.6 for Iext=280)
 %heterogeneous Vstart
-Vm_str = Vrest+5*randn(n,1);  % (mV)
-Vm_gp = Vrest+5*randn(n/r,1);
-Vm_snr = Vrest+5*randn(n/r.^2,1);
+Vm_str = Vrest+0.5*randn(n,1);  % (mV)
+Vm_gp = Vrest+0.5*randn(n/r,1);
+Vm_snr = Vrest+0.5*randn(n/r.^2,1);
 del_str = zeros(n,1);   % binary
 del_gp = zeros(n/r,1);
 gp_fr_out = [];
 Isyn_gp_out =[];
 Isyn_snr_out =[];
-Iext_str = 0.05*randn(n,length(t_span));   % 10% noise from the total external input (nA) 
+Iext_str = 0*randn(n,length(t_span));   % 10% noise from the total external input (~0.5pA) 
 stimCells=datasample(1:n,n*stimCellsPer/100,'Replace',false);	% Random sample of str cells for receiving stimulus, defined by percentage 
 
-% input to Str
-Iext_str(stimCells,ismember(t_span,tStim)) = 10*I_const+ Iext_str(stimCells,ismember(t_span,tStim));  % external input to Str (~1 pA) 
+%Noisy input to Str
+Iext_str(stimCells,ismember(t_span,tStim)) = 0*I_const+ Iext_str(stimCells,ismember(t_span,tStim));  % external input to Str (~5 pA) 
 
-%%Simulation
 for t = 1:length(t_span)
 %Striatum
 dVm_str = 1./tau_cell_str.*(-1*(Vm_str(:,t)-Vrest*ones(n,1)) + Iext_str(:,t)*R)*dt;   % dV/dt = 1/tau*(-V +IR) 
 
 %GP
 synSuccess_str2gp = double(rand(n,n/r)<prob_syn);	% flipping coin: n x n/r binary matrix 
-Isyn_gp = g_str2gp(:,t).*(Vm_gp(:,t)-Erev_i*ones(n/r,1));  % synaptic (nS x mV = pA)
+Isyn_gp = g_str2gp(:,t).*(Vm_gp(:,t)-Erev_i*ones(n/r,1));  % synaptic (pA)
 Iext_gp = I_exc_gp*I_const*ones(n/r,1);	% external input (pA) -  original value 30
 dg_str2gp = (-g_str2gp(:,t)./tau_syn + transpose(del_str'*synSuccess_str2gp*g_uni/n))*dt;
 dVm_gp =1./tau_cell_gp.* (-(Vm_gp(:,t)-Vrest*ones(n/r,1)) - Isyn_gp*R+Iext_gp*R)*dt;
@@ -85,12 +83,8 @@ dVm_gp =1./tau_cell_gp.* (-(Vm_gp(:,t)-Vrest*ones(n/r,1)) - Isyn_gp*R+Iext_gp*R)
 % Manipulation 1
 synSuccess_gp2snr = double(rand(n/r,n/r.^2)<prob_syn_gp2snr);	% flipping coin: n/r x n/r^2 binary matrix
 Isyn_snr = g_gp2snr(:,t).*(Vm_snr(:,t)-Erev_i.*ones(n/r.^2,1));	% synaptic (pA)
-% Manipulation 2
-% synSuccess_gp2snr = double(rand(n/r,n/r.^2)<prob_syn);	% flipping coin: n/r x n/r^2 binary matrix
-% Isyn_snr = g_gp2snr(:,t).*(Vm_snr(:,t)-Erev_i.*ones(n/r.^2,1))/I_exc_gp*30;	% synaptic (pA)
 
 Iext_snr = round(I_exc_gp*IextRatio_gpsnr,2)*I_const*ones(n/r.^2,1);	% external input (pA)
-%Iext_snr = 770*I_const*ones(n/r.^2,1);	% external input (pA) 760 to 770 is good range
 dg_gp2snr = (-g_gp2snr(:,t)./tau_syn + transpose(del_gp'*synSuccess_gp2snr*g_uni/(n/r)))*dt;
 dVm_snr = 1./tau_cell_snr.*(-(Vm_snr(:,t)-Vrest*ones(n/r.^2,1)) - Isyn_snr*R+Iext_snr*R)*dt;
 
@@ -132,7 +126,7 @@ end
 Isyn_gp_out = [Isyn_gp_out,Isyn_gp];
 Isyn_snr_out = [Isyn_snr_out,Isyn_snr];
 end
-toc
-%Isyn_gp_out = g_str2gp;
-%Isyn_snr_out = g_gp2snr;
+
+%reset initial g_gp2snr
+g_gp2snr_out = mean(mean(g_gp2snr(:,10000:20000)));
 end

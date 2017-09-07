@@ -1,5 +1,5 @@
  %% Condition 1 - 3pA
-tic
+
 spk_gp=[];
 spk_snr=[];
 spk_str=[];
@@ -10,7 +10,7 @@ gp_in = 80:20:270;    %80 to 270 correspond to 10 to 40Hz
 fr_gp = zeros(length(gp_in),1);
 
 % gp2snr synaptic transmission range
-P_gp2snr = 0.1:0.05:0.5;
+P_gp2snr = 0.1:0.1:0.9;
 I_tot_snr_mean = zeros(length(gp_in),length(P_gp2snr));
 I_tot_snr_std = zeros(length(gp_in),length(P_gp2snr));
 for param1 = 1:length(gp_in)
@@ -19,6 +19,8 @@ for param1 = 1:length(gp_in)
         spk_snr=[];
         spk_str=[];
         Isyn_snr=[];
+        
+        
         for l = 1:10
         %%Simulation
         [Vm_gp,Vm_snr,Vm_str, Isyn_gp, Isnr] = BGdelayline('stimCellsPer',100,'I_exc_gp',gp_in(param1),'prob_syn_gp2snr',P_gp2snr(param2));
@@ -41,12 +43,12 @@ for param1 = 1:length(gp_in)
         end
 
         fr_gp(param1,param2) = mean(psth_gp(find(1<=t_bar_gp*0.001<=3)))/(size(spk_gp,1)*(binWidth_gp*0.001));
-        I_tot_snr_mean(param1,param2) = mean(mean(Isyn_snr(:,2500:4000)));
-        I_tot_snr_std(param1,param2) = std(mean(Isyn_snr(:,2500:4000)));
+        I_tot_snr_mean(param1,param2) = mean(mean(Isyn_snr(:,3000:5000)));
+        I_tot_snr_std(param1,param2) = std(mean(Isyn_snr(:,3000:5000)));
      end
     
 end
-toc
+
 % figure;errorbar(P_gp2snr,I_tot_snr_mean(1,:),I_tot_snr_std(1,:))
 % xlabel('firing rate (Hz)')
 % ylabel('GP-to-SNr net inhibition per cell')

@@ -23,14 +23,14 @@ yPoints = [ neuron - lineLength ;
             NaN(size(neuron)) ];
 xPoints = xPoints(:);
 yPoints = yPoints(:);
-t_plot = xPoints*0.001;
+t_plot = xPoints*0.0001;    % RK integration at 0.1ms
 plot(t_plot,yPoints,'k');
       
 set(gca,'YDir','reverse');
 set(gca,'TickDir','out') 
 xlabel('Time (s)');
 ylabel('Neuron');
-xlim([0 (size(SpikeM,2)+1)*0.001]);
+xlim([0 (size(SpikeM,2)+1)*0.0001]);
 ylim([0 size(SpikeM,1)+1]);
 if size(SpikeM,1) == 1
     set(gca,'YTick', [0 1])                        % don't draw y-axis ticks
