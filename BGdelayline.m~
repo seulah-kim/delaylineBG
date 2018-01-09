@@ -1,6 +1,6 @@
 %% BGdelayline.m
 %This is the main code for simulating BG delay line model
-function [Vm_gp, Vm_snr, Vm_str, Isyn_gp_out, Isyn_snr_out] = BGdelayline(varargin);
+function [Vm_gp, Vm_snr, Vm_str, Isyn_gp_out, Isyn_snr_out,fr_gp] = BGdelayline(varargin);
 tic
 p = inputParser;	% construct input parser object
 
@@ -23,16 +23,16 @@ V_thres = -64;  % Threshold voltage(mV)
 p.addParameter('tau_syn',0.005); % synaptic decay constant (s) because RK method will multiply everything by dt
 p.addParameter('prob_syn', 0.35); % probability of successful synaptic transmission
 p.addParameter('prob_syn_gp2snr',0.35); % probability of successful synaptic transmission for gp2snr
-g_uni = 10; % synaptic conductance (mS) -- do not know which value to use
-p.addParameter('g_gp2snr_i',0.002);
+g_uni = 1; % synaptic conductance (mS)
+p.addParameter('g_gp2snr_i',3.5);
 
 %%Input current to Str layer
-%randNum = round((20-10).*rand(1,1)+10);
+randNum = round((20-10).*rand(1,1)+10);
 randNum = 1;	% timing of Stimulation
 tStim = [randNum:dt:randNum+0.010]; % (s) 
-%IextRatio_gpsnr = 4; %77/8 or 1?
-p.addParameter('stimCellsPer',100);	% Percentage of Str cells receiving stimulation
-p.addParameter('I_exc_gp',0.00006);		% Total excitatory input to GP cells controls firing rate (pA) -> equivalent to 6mV with R=100MOhm
+IextRatio_gpsnr = 4; %77/8 or 1?
+p.addParameter('stimCellsPer',53);	% Percentage of Str cells receiving stimulation
+p.addParameter('I_exc_gp',0.1);		% Total excitatory input to GP cells controls firing rate (pA) -> equivalent to 6mV with R=100MOhm
 
 %% Parse and validate input arguments
 p.parse(varargin{:}); 
@@ -63,16 +63,16 @@ del_gp = zeros(n/r,1);
 gp_fr_out = [];
 Isyn_gp_out =[];
 Isyn_snr_out =[];
-Iext_str = 0.000005*randn(n,length(t_span));   % 5% noise from the total external input (uA) 
+Iext_str = 0.05*randn(n,length(t_span));   % 5% noise from the total external input (nA) 
 stimCells=datasample(1:n,n*stimCellsPer/100,'Replace',false);	% Random sample of str cells for receiving stimulus, defined by percentage 
 
 % input to Str
-Iext_str(stimCells,ismember(t_span,tStim)) = 0.00005+ Iext_str(stimCells,ismember(t_span,tStim));  % external input to Str (~5 uA) 
+Iext_str(stimCells,ismember(t_span,tStim)) = 1+ Iext_str(stimCells,ismember(t_span,tStim));  % external input to Str (~1 pA) 
 
 %%Simulation
 for t = 1:length(t_span)
 %Striatum
-dVm_str = 1./tau_cell_str.*(-1*(Vm_str(:,t)-Vrest*ones(n,1)) + Iext_str(:,t)*1000*R)*dt;   % dV/dt = 1/tau*(-V +IR) 
+dVm_str = 1./tau_cell_str.*(-1*(Vm_str(:,t)-Vrest*ones(n,1)) + Iext_str(:,t)*R)*dt;   % dV/dt = 1/tau*(-V +IR) 
 
 %GP
 synSuccess_str2gp = double(rand(n,n/r)<prob_syn);	% flipping coin: n x n/r binary matrix 
@@ -82,8 +82,8 @@ dg_str2gp = (-g_str2gp(:,t)./tau_syn + transpose(del_str'*synSuccess_str2gp*g_un
 dVm_gp =1./tau_cell_gp.* (-(Vm_gp(:,t)-Vrest*ones(n/r,1)) + (Iext_gp-Isyn_gp)*1000*R)*dt; %convert pA to nA by dividing by 1000.
 
 %Estimating firing rate of GP cells
-% Vm_gp_inf = (-Vrest/mean(tau_cell_gp)-Erev_i*mean(g_str2gp(:,t))*10^(-3)+mean(Iext_gp)/(mean(tau_cell_gp)/R)*10^(6))/(mean(g_str2gp(:,t))*10^(-3)+1./mean(tau_cell_gp));
-% fr_gp(t) = 1/(mean(tau_cell_gp)*log((Vm_gp_inf-Vrest)/(Vm_gp_inf-V_thres))); %#ok<AGROW>
+Vm_gp_inf = (-Vrest/mean(tau_cell_gp)-Erev_i*mean(g_str2gp(:,t))*10^(-3)+mean(Iext_gp)/(mean(tau_cell_gp)/R)*10^(6))/(mean(g_str2gp(:,t))*10^(-3)+1./mean(tau_cell_gp));
+fr_gp(t) = 1/(mean(tau_cell_gp)*log((Vm_gp_inf-Vrest)/(Vm_gp_inf-V_thres))); %#ok<AGROW>
 
 %SNr
 % Manipulation 1
