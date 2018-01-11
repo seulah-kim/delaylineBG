@@ -23,16 +23,17 @@ V_thres = -64;  % Threshold voltage(mV)
 p.addParameter('tau_syn',0.005); % synaptic decay constant (s) because RK method will multiply everything by dt
 p.addParameter('prob_syn', 0.35); % probability of successful synaptic transmission
 p.addParameter('prob_syn_gp2snr',0.35); % probability of successful synaptic transmission for gp2snr
-g_uni = 10; % synaptic conductance (mS) -- do not know which value to use
-p.addParameter('g_gp2snr_i',0.002);
+g_uni = 1000; % synaptic conductance (pS) -- do not know which value to use
+p.addParameter('g_gp2snr_i',0.0006);
+p.addParameter('Isyn_snr_i',0);
 
 %%Input current to Str layer
 %randNum = round((20-10).*rand(1,1)+10);
 randNum = 1;	% timing of Stimulation
-tStim = [randNum:dt:randNum+0.010]; % (s) 
+tStim = (1/dt):((1+0.01)/dt); % (s) 
 %IextRatio_gpsnr = 4; %77/8 or 1?
-p.addParameter('stimCellsPer',100);	% Percentage of Str cells receiving stimulation
-p.addParameter('I_exc_gp',0.00006);		% Total excitatory input to GP cells controls firing rate (pA) -> equivalent to 6mV with R=100MOhm
+p.addParameter('stimCellsPer',35);	% Percentage of Str cells receiving stimulation
+p.addParameter('I_exc_gp',60);		% Total excitatory input to GP cells controls firing rate  60pA (pA) -> equivalent to 6mV with R=100MOhm
 
 %% Parse and validate input arguments
 p.parse(varargin{:}); 
@@ -46,6 +47,8 @@ stimCellsPer = p.Results.stimCellsPer;
 I_exc_gp = p.Results.I_exc_gp;
 prob_syn_gp2snr = p.Results.prob_syn_gp2snr;
 g_gp2snr_i = p.Results.g_gp2snr_i;
+Isyn_snr_i = p.Results.Isyn_snr_i;
+
 %%Initialize variables
 %Cellular
 tau_cell_str = 0.01*ones(n,1);   % cell decay constant (s)
@@ -60,43 +63,34 @@ Vm_gp = Vrest+5*randn(n/r,1);
 Vm_snr = Vrest+5*randn(n/r.^2,1);
 del_str = zeros(n,1);   % binary
 del_gp = zeros(n/r,1);
-gp_fr_out = [];
+
 Isyn_gp_out =[];
 Isyn_snr_out =[];
-Iext_str = 0.000005*randn(n,length(t_span));   % 5% noise from the total external input (uA) 
+%Iext_str = 20.*randn(n,length(t_span));   % noise standard deviation is 20pA 
+Iext_str = zeros(n,length(t_span));   % noise standard deviation is 20pA 
 stimCells=datasample(1:n,n*stimCellsPer/100,'Replace',false);	% Random sample of str cells for receiving stimulus, defined by percentage 
 
 % input to Str
-Iext_str(stimCells,ismember(t_span,tStim)) = 0.00005+ Iext_str(stimCells,ismember(t_span,tStim));  % external input to Str (~5 uA) 
+Iext_str(stimCells,tStim) = 1000 ;  % external input to Str (1000 pA) 
 
 %%Simulation
 for t = 1:length(t_span)
 %Striatum
-dVm_str = 1./tau_cell_str.*(-1*(Vm_str(:,t)-Vrest*ones(n,1)) + Iext_str(:,t)*1000*R)*dt;   % dV/dt = 1/tau*(-V +IR) 
+dVm_str = dt./tau_cell_str.*(-Vm_str(:,t)+Vrest*ones(n,1)+Iext_str(:,t)/1000*R) + 20.*randn(n,1).*sqrt(dt);   % dV/dt = 1/tau*(-V +IR). Here white noise input is described by Langenvin eqn.  
 
 %GP
 synSuccess_str2gp = double(rand(n,n/r)<prob_syn);	% flipping coin: n x n/r binary matrix 
-Isyn_gp = g_str2gp(:,t).*(Vm_gp(:,t)-Erev_i*ones(n/r,1));  % synaptic (mS x mV = uA)
-Iext_gp = I_exc_gp*ones(n/r,1)+I_exc_gp*0.05*randn(n/r,1);	% external input (uA) -  original value 30, 5% noise
-dg_str2gp = (-g_str2gp(:,t)./tau_syn + transpose(del_str'*synSuccess_str2gp*g_uni/n))*dt; %mS
-dVm_gp =1./tau_cell_gp.* (-(Vm_gp(:,t)-Vrest*ones(n/r,1)) + (Iext_gp-Isyn_gp)*1000*R)*dt; %convert pA to nA by dividing by 1000.
-
-%Estimating firing rate of GP cells
-% Vm_gp_inf = (-Vrest/mean(tau_cell_gp)-Erev_i*mean(g_str2gp(:,t))*10^(-3)+mean(Iext_gp)/(mean(tau_cell_gp)/R)*10^(6))/(mean(g_str2gp(:,t))*10^(-3)+1./mean(tau_cell_gp));
-% fr_gp(t) = 1/(mean(tau_cell_gp)*log((Vm_gp_inf-Vrest)/(Vm_gp_inf-V_thres))); %#ok<AGROW>
+Isyn_gp = g_str2gp(:,t).*(Vm_gp(:,t)-Erev_i*ones(n/r,1));  % synaptic (nS x mV = pA)
+Iext_gp = I_exc_gp*ones(n/r,1);	% external input (pA) -  original value 60
+dg_str2gp = -g_str2gp(:,t)./tau_syn.*dt + transpose(del_str'*synSuccess_str2gp*0.001*g_uni); %nS (g_uni is converted from pS to nS)
+dVm_gp =1./tau_cell_gp.* (-(Vm_gp(:,t)-Vrest*ones(n/r,1)) + (Iext_gp-Isyn_gp)/1000*R)*dt+ 20.*randn(n/r,1).*sqrt(dt); %convert pA to nA by dividing by 1000. nA*MOhm = mV
 
 %SNr
-% Manipulation 1
-% synSuccess_gp2snr = double(rand(n/r,n/r.^2)<prob_syn_gp2snr);	% flipping coin: n/r x n/r^2 binary matrix
-% Isyn_snr = g_gp2snr(:,t).*(Vm_snr(:,t)-Erev_i.*ones(n/r.^2,1));	% synaptic (pA)
-% Manipulation 2
 synSuccess_gp2snr = double(rand(n/r,n/r.^2)<prob_syn);	% flipping coin: n/r x n/r^2 binary matrix
-Isyn_snr = g_gp2snr(:,t).*(Vm_snr(:,t)-Erev_i.*ones(n/r.^2,1));	% synaptic (pA)
-
-%Iext_snr = round(I_exc_gp*IextRatio_gpsnr,2)*ones(n/r.^2,1)+round(I_exc_gp*IextRatio_gpsnr,2)*0.05*randn(n/r.^2,1);	% external input (pA) scales with synaptic current from GP, 5% noise
-Iext_snr = 0.00007*ones(n/r.^2,1);	% external input (pA) 760 to 770 is good range
-dg_gp2snr = (-g_gp2snr(:,t)./tau_syn + transpose(del_gp'*synSuccess_gp2snr*g_uni/(n/r)))*dt;
-dVm_snr = 1./tau_cell_snr.*(-(Vm_snr(:,t)-Vrest*ones(n/r.^2,1))+(Iext_snr-Isyn_snr)*1000*R)*dt;
+Isyn_snr = g_gp2snr(:,t).*(Vm_snr(:,t)-Erev_i.*ones(n/r.^2,1));	% synaptic (nS x mV = pA)
+Iext_snr = (Isyn_snr_i+60)*ones(n/r.^2,1);	% external input (pA) ** change this value to basal Isyn_snr input based on gp f.r.
+dg_gp2snr = -g_gp2snr(:,t)./tau_syn.*dt + transpose(del_gp'*synSuccess_gp2snr*0.001*g_uni); %nS (g_uni is converted from pS to nS)
+dVm_snr = 1./tau_cell_snr.*(-(Vm_snr(:,t)-Vrest*ones(n/r.^2,1))+(Iext_snr-Isyn_snr)/1000*R)*dt + 20.*randn(n/r.^2,1).*sqrt(dt); %convert pA to nA by dividing by 1000. nA*MOhm = mV
 
 %Update conductances
 g_str2gp(:,t+1) = g_str2gp(:,t)+dg_str2gp;
@@ -137,6 +131,4 @@ Isyn_gp_out = [Isyn_gp_out,Isyn_gp];
 Isyn_snr_out = [Isyn_snr_out,Isyn_snr];
 end
 toc
-%Isyn_gp_out = g_str2gp;
-%Isyn_snr_out = g_gp2snr;
 end
