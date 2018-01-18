@@ -25,7 +25,7 @@ p.addParameter('prob_syn', 0.35); % probability of successful synaptic transmiss
 p.addParameter('prob_syn_gp2snr',0.35); % probability of successful synaptic transmission for gp2snr
 g_uni = 1000; % synaptic conductance (pS) -- do not know which value to use
 p.addParameter('g_gp2snr_i',0.0006);
-p.addParameter('Isyn_snr_i',0);
+
 
 %%Input current to Str layer
 %randNum = round((20-10).*rand(1,1)+10);
@@ -47,7 +47,7 @@ stimCellsPer = p.Results.stimCellsPer;
 I_exc_gp = p.Results.I_exc_gp;
 prob_syn_gp2snr = p.Results.prob_syn_gp2snr;
 g_gp2snr_i = p.Results.g_gp2snr_i;
-Isyn_snr_i = p.Results.Isyn_snr_i;
+
 
 %%Initialize variables
 %Cellular
@@ -86,9 +86,9 @@ dg_str2gp = -g_str2gp(:,t)./tau_syn.*dt + transpose(del_str'*synSuccess_str2gp*0
 dVm_gp =1./tau_cell_gp.* (-(Vm_gp(:,t)-Vrest*ones(n/r,1)) + (Iext_gp-Isyn_gp)/1000*R)*dt+ 20.*randn(n/r,1).*sqrt(dt); %convert pA to nA by dividing by 1000. nA*MOhm = mV
 
 %SNr
-synSuccess_gp2snr = double(rand(n/r,n/r.^2)<prob_syn);	% flipping coin: n/r x n/r^2 binary matrix
+synSuccess_gp2snr = double(rand(n/r,n/r.^2)<prob_syn_gp2snr);	% flipping coin: n/r x n/r^2 binary matrix
 Isyn_snr = g_gp2snr(:,t).*(Vm_snr(:,t)-Erev_i.*ones(n/r.^2,1));	% synaptic (nS x mV = pA)
-Iext_snr = (Isyn_snr_i+60)*ones(n/r.^2,1);	% external input (pA) ** change this value to basal Isyn_snr input based on gp f.r.
+Iext_snr = 100*ones(n/r.^2,1);	% external input (pA) ** change this value to basal Isyn_snr input based on gp f.r.
 dg_gp2snr = -g_gp2snr(:,t)./tau_syn.*dt + transpose(del_gp'*synSuccess_gp2snr*0.001*g_uni); %nS (g_uni is converted from pS to nS)
 dVm_snr = 1./tau_cell_snr.*(-(Vm_snr(:,t)-Vrest*ones(n/r.^2,1))+(Iext_snr-Isyn_snr)/1000*R)*dt + 20.*randn(n/r.^2,1).*sqrt(dt); %convert pA to nA by dividing by 1000. nA*MOhm = mV
 
