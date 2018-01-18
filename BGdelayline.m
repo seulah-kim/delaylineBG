@@ -1,7 +1,6 @@
 %% BGdelayline.m
 %This is the main code for simulating BG delay line model
 function [Vm_gp, Vm_snr, Vm_str, Isyn_gp_out, Isyn_snr_out] = BGdelayline(varargin);
-tic
 p = inputParser;	% construct input parser object
 
 %%Network size
@@ -130,5 +129,5 @@ end
 Isyn_gp_out = [Isyn_gp_out,Isyn_gp];
 Isyn_snr_out = [Isyn_snr_out,Isyn_snr];
 end
-toc
+
 end

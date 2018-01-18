@@ -1,7 +1,7 @@
 %% BGdelayline.m
 %This is the main code for simulating BG delay line model
 function [g_gp2snr_out , Isyn_snr, del_gp_out ] = BGdelayline_setinit2(varargin)
-tic
+
 p = inputParser;	% construct input parser object
 
 %%Network size
@@ -132,5 +132,5 @@ end
 g_gp2snr_out = mean(mean(g_gp2snr(:,end-1/dt:end)));
 %determine net inhibitory synaptic current during last 1 s.
 Isyn_snr = mean(mean(Isyn_snr_out(:,end-1/dt:end)));
-toc
+
 end
