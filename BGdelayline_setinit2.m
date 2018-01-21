@@ -85,7 +85,7 @@ dVm_gp =1./tau_cell_gp.* (-(Vm_gp(:,t)-Vrest*ones(n/r,1)) + (Iext_gp-Isyn_gp)/10
 %SNr
 synSuccess_gp2snr = double(rand(n/r,n/r.^2)<prob_syn_gp2snr);	% flipping coin: n/r x n/r^2 binary matrix
 Isyn_snr = g_gp2snr(:,t).*(Vm_snr(:,t)-Erev_i.*ones(n/r.^2,1));	% synaptic (nS x mV = pA)
-Iext_snr = (100)*ones(n/r.^2,1);	% external input (pA) ** change this value to basal Isyn_snr input based on gp f.r.
+Iext_snr = 65*ones(n/r.^2,1);	% external input (pA) ** change this value to basal Isyn_snr input based on gp f.r.
 dg_gp2snr = -g_gp2snr(:,t)./tau_syn.*dt + transpose(del_gp'*synSuccess_gp2snr*0.001*g_uni); %nS (g_uni is converted from pS to nS)
 dVm_snr = 1./tau_cell_snr.*(-(Vm_snr(:,t)-Vrest*ones(n/r.^2,1))+(Iext_snr-Isyn_snr)/1000*R)*dt + 20.*randn(n/r.^2,1).*sqrt(dt); %convert pA to nA by dividing by 1000. nA*MOhm = mV
 
