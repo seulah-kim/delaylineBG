@@ -1,4 +1,4 @@
-%% BGdelayline.m
+%% BGdelayline_SNrdelay.m
 %This is the main code for simulating BG delay line model
 function [Vm_snr] = BGdelayline_SNrdelay(varargin);
 

@@ -1,4 +1,4 @@
-%% BGdelayline.m
+%% BGdelayline_setinit2.m
 %This is the main code for simulating BG delay line model
 function [g_gp2snr_out , Isyn_snr, del_gp_out ] = BGdelayline_setinit2(varargin)
 

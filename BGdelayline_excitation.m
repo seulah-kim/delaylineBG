@@ -1,6 +1,6 @@
 %% BGdelayline.m
 %This is the main code for simulating BG delay line model
-function [Vm_gp, Vm_snr, Vm_str, Isyn_gp_out, Isyn_snr_out] = BGdelayline(varargin);
+function [Vm_gp, Vm_snr, Vm_str, Isyn_gp_out, Isyn_snr_out] = BGdelayline_excitation(varargin);
 p = inputParser;	% construct input parser object
 
 %%Network size
@@ -13,7 +13,7 @@ t_span = 0:dt:3;
 
 %%Define Constants
 R = 100;        % Membrane Resistance (MOhm) ** changed from 100 1/8/18 
-Erev_i = -85;   % Synaptic reversal potential(mV)
+Erev_i = 0;   % Synaptic reversal potential(mV) for AMPAR
 %I_const = 0.1;   % General scale for constant excitatory input(nA)
 Vrest = -70;    % Resting potential(mV)
 Vpeak = 15;     % Peak potential(mV)
@@ -29,11 +29,11 @@ p.addParameter('g_gp2snr_i',0.0006);
 %%Input current to Str layer
 %randNum = round((20-10).*rand(1,1)+10);
 randNum = 1;	% timing of Stimulation
-tStim = (1/dt):((1+0.5)/dt); % (s) 
+tStim = (1/dt):((1+0.01)/dt); % (s) 
 %IextRatio_gpsnr = 4; %77/8 or 1?
 p.addParameter('stimCellsPer',35);	% Percentage of Str cells receiving stimulation
 p.addParameter('I_exc_gp',60);		% Total excitatory input to GP cells controls firing rate  60pA (pA) -> equivalent to 6mV with R=100MOhm
-p.addParameter('I_exc_snr',70);		% Total excitatory input to SNr cells controls firing rate  60pA (pA) -> equivalent to 6mV with R=100MOhm
+p.addParameter('I_exc_snr',60);		% Total excitatory input to GP cells controls firing rate  60pA (pA) -> equivalent to 6mV with R=100MOhm
 
 p.addParameter('connectivity','all');   % GPe2SNr connectivity. Default is all cells convering to 1.
 %% Parse and validate input arguments
@@ -79,7 +79,7 @@ switch connectivity
         for ii=1:n/r.^2
             connection = randsample([1:(n/r)],nInputs);
             gp2snr_connectivity(connection,ii) = 1; %connectivity
-            W_gp(:,ii)= connection; %GPe input location to each SNr cell
+            W_gp(:,i)= connection; %GPe input location to each SNr cell
         end 
             
     case 'segregated'   % picks selected number of inputs and converge in non-overlapping
@@ -99,7 +99,6 @@ end
 
 W_str2gp = zeros(n,n/r);
 W_gp2snr = zeros(n/r,n/r.^2);
-
 Isyn_gp_out =[];
 Isyn_snr_out =[];
 %Iext_str = 20.*randn(n,length(t_span));   % noise standard deviation is 20pA 
